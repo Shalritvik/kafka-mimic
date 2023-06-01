@@ -1,0 +1,98 @@
+import socket
+import threading
+import os
+PORT = 5050
+SERVER = socket.gethostbyname(socket.gethostname())
+ADDR = (SERVER , PORT)
+FORMAT = 'utf-8'
+dic={}
+sub={}
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.bind(ADDR)
+
+def Round_robin(value):
+    topic=value.split(":")[0]
+    f=open(topic,"a")
+    f.write(value+'\n')
+    f.close()
+    Node1=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    Node1.connect((SERVER,5051))
+    Node1.send("0"+value.encode(FORMAT))
+    Node1.close()
+    Node2=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    Node2.connect((SERVER,5052))
+    Node2.send("0"+value.encode(FORMAT))
+    Node2.close()
+
+def rep(st,i):
+    a=st.split(":")[0]
+    f=open(str(i)+a,"a")
+    f.write(st+'\n')
+    f.close()
+    Node1=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    Node1.connect((SERVER,5051))
+    Node1.send(str(i)+st.encode(FORMAT))
+    Node1.close()
+    Node2=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    Node2.connect((SERVER,5052))
+    Node2.send(str(i)+st.encode(FORMAT))
+    Node2.close()
+
+def begin(cnn,topic):
+    directory='E:\Sem_5\BD\Project\Big_data\Broker1"\"'
+    i=os.path.exists(directory+topic)
+    if i:
+        f=open(topic,"r")
+        for data in f:
+            cnn.send(data.encode(FORMAT))
+        f.close()
+    i=os.path.exists(directory+"1"+topic)
+    if i:
+        f=open("1"+topic,"r")
+        for x in f:
+            cnn.send(data.encode(FORMAT))
+        f.close()
+    i=os.path.exists(directory+"2"+topic)
+    if i:
+        f=open("2"+topic,"r")
+        for x in f:
+            cnn.send(x.encode(FORMAT))
+        f.close()
+
+def Start():
+    server.listen()
+    while True:
+        cnn,addr=server.accept()
+        value=cnn.recv(1024).decode()
+        if len(value)>0:
+            V0,V1=value.split(":")
+            if V0=="$$":
+                del sub[cnn]
+            elif len(V0)!=0 and V0!="begin":
+                cnn.send("Acknowledged".encode(FORMAT))
+                if V0 not in dic or dic[V0]==0:
+                    dic[V0]=1
+                    thread=threading.Thread(target=Round_robin,args=(value))
+                    thread.start()
+                elif dic[V0]==1:
+                    dic[V0]=2
+                    thread=threading.Thread(target=rep,args=(value,1))
+                    thread.start()
+                elif dic[V0]==2:
+                    dic[V0]=0
+                    thread=threading.Thread(target=rep,args=(value,2))
+                    thread.start()
+                for k,v in sub.items():
+                    if v==V0:
+                        k.send(value.encode(FORMAT))
+            elif len(V0)==0:
+                sub[cnn]=V1
+                cnn.send(bytes("Acknowledged",'utf-8'))
+            elif V0=="begin":
+                sub[cnn]=V1
+                cnn.send(bytes("Acknowledged",'utf-8'))
+                thread=threading.Thread(target=begin,args=(cnn,V1))
+                thread.start()
+
+
+Start()
