@@ -1,0 +1,73 @@
+import socket
+import threading
+import os
+
+PORT = 5052
+SERVER = socket.gethostbyname(socket.gethostname())
+ADDR = (SERVER , PORT)
+FORMAT = 'utf-8'
+
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.bind(ADDR)
+
+subset={}
+def round_robin(message):
+    message=message[1:]
+    topic=message.split(":")[0]
+    f=open(topic,"a")
+    f.write(message+'\n')
+    f.close()
+def rep(value):
+    ch=value[0]
+    a=value[1:].split(":")[0]
+    f=open(ch+a,"a")
+    f.write(value+'\n')
+    f.close()
+
+def begin(cnn,topic):
+    Directory='E:\Sem_5\BD\Project\Big_data\Broker3"\"'
+    file=os.path.exists(Directory+topic)
+    if file:
+        f=open(topic,"r")
+        for data in f:
+            cnn.send(data.encode(FORMAT))
+        f.close()
+    file=os.path.exists(Directory+"0"+topic)
+    if file:
+        f=open(topic,"r")
+        for data in f:
+            cnn.send(data.encode(FORMAT))
+        f.close()
+    file=os.path.exists(Directory+"2"+topic)
+    if file:
+        f=open(topic,"r")
+        for data in f:
+            cnn.send(data.encode(FORMAT))
+        f.close()
+
+def Start():
+    server.listen()
+    while True:
+        cnn,addr=server.accept()
+        value=cnn.recv(1024).decode()
+        if len(value)>0:
+            V0,V1=value.split(":")
+            if len(V0)!=0 and V0!="begin":
+                if value[0]=="1":
+                    thread=threading.Thread(target=round_robin,args=(value))
+                    thread.start()
+                elif value[0]=="0" or value[0]=="2":
+                    thread=threading.Thread(target=rep,args=(value))
+                    thread.start()
+                value=value[1:]
+                V0=V0[1:]
+                for k,v in subset.items():
+                    if v==V0:
+                        k.send(value.encode(FORMAT))
+            elif len(V0)==0:
+                subset[cnn]=V1
+            elif V0=="begin":
+                subset[cnn]=V1
+                thread=threading.Thread(target=begin,args=(cnn,V1))
+                thread.start()
+Start()
